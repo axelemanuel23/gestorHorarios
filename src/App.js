@@ -51,19 +51,37 @@ const HorarioEditable = () => {
 
   // Función para exportar la matriz a CSV
   const exportarCSV = () => {
-    const data = matriz.map((fila, filaIndex) => [
-      encabezadosFilas[filaIndex + 1],
-      ...fila.map((celda) => (celda ? celda : '')),
-    ]);
+    // Crear los encabezados del CSV, incluyendo columnas para sector y color
+    const encabezados = ['Entrada/Salida', ...horarios.map((h, i) => `Horario ${i + 1}`), 'Sector', 'Color'];
     
-    data.unshift(['Entrada/Salida', ...horarios]); // Agregar encabezado
-
-    const csv = Papa.unparse(data);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // Crear la matriz de datos para el CSV, incluyendo sectores y colores
+    const datosCSV = matriz.map((fila, filaIndex) => {
+      const filaDatos = fila.map((celda, colIndex) => {
+        if (celda) {
+          const agente = agentes.find(a => `${a.nombre} ${a.apellido}` === celda);
+          return agente ? celda : '';
+        }
+        return '';
+      });
+  
+      // Obtener el primer agente de la fila para obtener el sector y color
+      const agentePrincipal = agentes.find(a => `${a.nombre} ${a.apellido}` === fila[0]);
+      const sector = agentePrincipal ? agentePrincipal.sector : '';
+      const color = agentePrincipal ? agentePrincipal.color : '';
+  
+      return [encabezadosFilas[filaIndex + 1], ...filaDatos, sector, color];
+    });
+  
+    // Añadir el encabezado al principio de los datos
+    const csvData = [encabezados, ...datosCSV];
+    
+    const csvContent = Papa.unparse(csvData);
+  
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'horario.csv');
+    link.setAttribute('download', 'horarios.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -72,66 +90,67 @@ const HorarioEditable = () => {
   // Función para importar la matriz desde un archivo CSV
   const importarCSV = (event) => {
     const file = event.target.files[0];
-    if (file) {
-      Papa.parse(file, {
-        complete: (result) => {
-          const data = result.data;
-          const nuevosHorarios = data[0].slice(1); // Obtiene los horarios del encabezado
-          const nuevasFilas = data.slice(1).map((fila) => fila[0]); // Obtiene los encabezados de filas
-          const nuevaMatriz = data.slice(1).map((fila) => fila.slice(1)); // Obtiene la matriz
+    if (!file) return;
   
-          // Reconstruir los agentes basados en los datos de la matriz
-          const agentesSet = new Set();
-          nuevaMatriz.forEach((fila) => {
-            fila.forEach((celda) => {
-              if (celda && celda.trim() !== '') {
-                agentesSet.add(celda);
-              }
-            });
-          });
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const csvData = e.target.result;
+      const parsedData = Papa.parse(csvData, { header: true });
+      
+      const datosImportados = parsedData.data;
+      
+      // Procesar horarios y matriz
+      const nuevosHorarios = parsedData.meta.fields.slice(1, -2); // Excluyendo 'Entrada/Salida', 'Sector' y 'Color'
+      setHorarios(nuevosHorarios);
   
-          // Verificar agentes ya existentes y evitar duplicados
-          const agentesExistentes = new Map(
-            agentes.map((agente) => [`${agente.nombre} ${agente.apellido}`, agente])
-          );
+      const nuevaMatriz = datosImportados.map((fila) => {
+        return nuevosHorarios.map((_, index) => fila[`Horario ${index + 1}`] || null);
+      });
   
-          const nuevosAgentes = Array.from(agentesSet).map((nombreCompleto) => {
-            const [nombre, apellido] = nombreCompleto.split(' ');
-            if (agentesExistentes.has(nombreCompleto)) {
-              // Si ya existe, devolvemos el agente existente
-              return agentesExistentes.get(nombreCompleto);
-            } else {
-              // Si no existe, creamos un nuevo agente
-              return {
+      setMatriz(nuevaMatriz);
+  
+      // Procesar encabezados de filas
+      const nuevosEncabezados = datosImportados.map((fila) => fila['Entrada/Salida']);
+      setEncabezadosFilas([encabezadosFilas[0], ...nuevosEncabezados]);
+  
+      // Procesar agentes y sectores
+      const nuevosAgentes = [];
+      const nuevosSectoresData = sectores.map(sector => ({ nombre: sector, agentes: [] }));
+  
+      datosImportados.forEach((fila, filaIndex) => {
+        nuevosHorarios.forEach((_, colIndex) => {
+          const nombreCompleto = fila[`Horario ${colIndex + 1}`];
+          if (nombreCompleto) {
+            const sector = fila['Sector'];
+            const color = fila['Color'];
+  
+            if (!nuevosAgentes.find(agente => `${agente.nombre} ${agente.apellido}` === nombreCompleto)) {
+              const [nombre, apellido] = nombreCompleto.split(' ');
+              const nuevoAgente = {
                 id: uuidv4(),
                 nombre,
                 apellido,
-                horas: nuevaMatriz.flat().filter(celda => celda === nombreCompleto).length,
-                color: colors[(agentes.length + agentesExistentes.size) % colors.length], // Asigna colores de forma continua
-                sector: 'peaton', // O asigna un sector predeterminado
+                horas: 0,
+                color: color || colors[nuevosAgentes.length % colors.length],
+                sector: sector || 'peaton',
               };
+  
+              nuevosAgentes.push(nuevoAgente);
+  
+              const sectorData = nuevosSectoresData.find(s => s.nombre === nuevoAgente.sector);
+              if (sectorData) {
+                sectorData.agentes.push(nuevoAgente);
+              }
             }
-          });
-  
-          // Combinar agentes nuevos y existentes
-          const agentesCombinados = [...agentes, ...nuevosAgentes.filter((agente) => !agentesExistentes.has(`${agente.nombre} ${agente.apellido}`))];
-  
-          // Actualizar sectoresData para reflejar los agentes combinados
-          const nuevosSectoresData = sectores.map(sector => ({
-            nombre: sector,
-            agentes: sector === 'peaton' ? agentesCombinados : []
-          }));
-  
-          setHorarios(nuevosHorarios);
-          setEncabezadosFilas(['Entrada/Salida', ...nuevasFilas]);
-          setMatriz(nuevaMatriz);
-          setAgentes(agentesCombinados);
-          setSectoresData(nuevosSectoresData);
-        },
-        header: false,
-        skipEmptyLines: true,
+          }
+        });
       });
-    }
+  
+      setAgentes(nuevosAgentes);
+      setSectoresData(nuevosSectoresData);
+    };
+  
+    reader.readAsText(file);
   };
 
   const generarTextoHorario = () => {
