@@ -303,7 +303,7 @@ const HorarioEditable = () => {
         </div>
       </div>
       <div className="mt-4">
-          <h3 className="text-lg font-semibold mb-2">Generar mensaje de horario</h3>
+          <h3 className="text-lg font-semibold mb-2">Seleccionar Horario</h3>
           <select
             className="border p-2 mb-2"
             value={selectedHorario || ''}
@@ -342,7 +342,7 @@ const HorarioEditable = () => {
               <th className="border p-2 w-1/4">
                 <input
                   type="text"
-                  value=""
+                  value={encabezadosFilas[0]}
                   onChange={(e) => editarEncabezadoFila(0, e.target.value)}
                   className="w-full text-center font-bold"
                   placeholder="Entrada/Salida"
