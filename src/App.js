@@ -49,26 +49,39 @@ const HorarioEditable = () => {
     localStorage.setItem('sectoresData', JSON.stringify(sectoresData));
   }, [sectoresData, horarios, encabezadosFilas, matriz, agentes]);
 
+  // Función para limpiar el localStorage
+const limpiarLocalStorage = () => {
+  localStorage.removeItem('horarios');
+  localStorage.removeItem('encabezadosFilas');
+  localStorage.removeItem('matriz');
+  localStorage.removeItem('agentes');
+  localStorage.removeItem('sectoresData');
+
+  // Reiniciar el estado a sus valores por defecto
+  setHorarios(Array(10).fill(''));
+  setEncabezadosFilas(Array(11).fill().map((_, index) => `Casilla ${index + 1}`));
+  setMatriz(Array(11).fill().map(() => Array(10).fill(null)));
+  setAgentes([]);
+  setSectoresData(sectores.map(sector => ({ nombre: sector, agentes: [] })));
+};
+
   // Función para exportar la matriz a CSV
   const exportarCSV = () => {
     // Crear los encabezados del CSV
     const encabezados = ['Entrada/Salida', ...horarios.map((h, i) => `Horario ${i + 1}`)];
-    
-    // Añadir encabezados adicionales para cada agente en cada columna de la matriz
-    const agenteEncabezados = ['Nombre', 'Apellido', 'Horas', 'Sector', 'Color'];
-    const csvData = [encabezados, ...agenteEncabezados];
   
     // Crear la matriz de datos para el CSV
     const datosCSV = matriz.map((fila, filaIndex) => {
-      const filaDatos = fila.map((celda, colIndex) => {
-        if (celda) {
-          const agente = agentes.find(a => `${a.nombre} ${a.apellido}` === celda);
-          return agente ? [agente.nombre, agente.apellido, agente.horas, agente.sector, agente.color] : ['', '', '', '', ''];
-        }
-        return ['', '', '', '', ''];
-      });
-  
-      return [encabezadosFilas[filaIndex + 1], ...filaDatos.flat()];
+      return [
+        encabezadosFilas[filaIndex + 1],
+        ...fila.map((celda, colIndex) => {
+          if (celda) {
+            const agente = agentes.find(a => `${a.nombre} ${a.apellido}` === celda);
+            return agente ? [agente.nombre, agente.apellido, agente.horas, agente.sector, agente.color] : ['', '', '', '', ''];
+          }
+          return ['', '', '', '', ''];
+        }).flat()
+      ];
     });
   
     // Unir encabezados y datos
@@ -413,6 +426,12 @@ const HorarioEditable = () => {
           onChange={importarCSV}
           className="p-2 border"
         />
+        <button
+          onClick={limpiarLocalStorage} // Agrega el botón aquí
+          className="bg-red-500 text-white p-2 rounded ml-2"
+        >
+          Limpiar Datos
+        </button>
       </div>
       <div className="mt-4">
           <h3 className="text-lg font-semibold mb-2">Seleccionar Horario</h3>
