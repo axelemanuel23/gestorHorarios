@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, ArrowUpDown } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import Papa from 'papaparse'; // Importa PapaParse
 
 const colors = [
   'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500',
@@ -47,6 +48,47 @@ const HorarioEditable = () => {
     localStorage.setItem('agentes', JSON.stringify(agentes));
     localStorage.setItem('sectoresData', JSON.stringify(sectoresData));
   }, [sectoresData, horarios, encabezadosFilas, matriz, agentes]);
+
+  // Función para exportar la matriz a CSV
+  const exportarCSV = () => {
+    const data = matriz.map((fila, filaIndex) => [
+      encabezadosFilas[filaIndex + 1],
+      ...fila.map((celda) => (celda ? celda : '')),
+    ]);
+    
+    data.unshift(['Entrada/Salida', ...horarios]); // Agregar encabezado
+
+    const csv = Papa.unparse(data);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'horario.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Función para importar la matriz desde un archivo CSV
+  const importarCSV = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      Papa.parse(file, {
+        complete: (result) => {
+          const data = result.data;
+          const nuevosHorarios = data[0].slice(1); // Obtiene los horarios del encabezado
+          const nuevasFilas = data.slice(1).map((fila) => fila[0]); // Obtiene los encabezados de filas
+          const nuevaMatriz = data.slice(1).map((fila) => fila.slice(1)); // Obtiene la matriz
+
+          setHorarios(nuevosHorarios);
+          setEncabezadosFilas(['Entrada/Salida', ...nuevasFilas]);
+          setMatriz(nuevaMatriz);
+        },
+        header: false,
+        skipEmptyLines: true,
+      });
+    }
+  };
 
   const generarTextoHorario = () => {
     if (selectedHorario === null) return;
@@ -301,6 +343,20 @@ const HorarioEditable = () => {
             </div>
           ))}
         </div>
+      </div>
+      <div className="mt-4 mb-4">
+        <button
+          onClick={exportarCSV}
+          className="bg-green-500 text-white p-2 rounded mr-2"
+        >
+          Exportar a CSV
+        </button>
+        <input
+          type="file"
+          accept=".csv"
+          onChange={importarCSV}
+          className="p-2 border"
+        />
       </div>
       <div className="mt-4">
           <h3 className="text-lg font-semibold mb-2">Seleccionar Horario</h3>
