@@ -265,7 +265,7 @@ const HorarioEditable = () => {
         index !== fila && row[columna] === nombreCompleto
       );
       
-      if (!yaAsignado && nuevaMatriz[fila][columna] === null) {
+      if (!yaAsignado && (nuevaMatriz[fila][columna] === null || nuevaMatriz[fila][columna] === '')) {
         nuevaMatriz[fila][columna] = nombreCompleto;
         setMatriz(nuevaMatriz);
   
