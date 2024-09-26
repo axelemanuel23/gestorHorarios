@@ -275,6 +275,9 @@ const HorarioEditable = () => {
             : agente
         );
         setAgentes(nuevosAgentes);
+      }else{
+        
+        alert(`${nombreCompleto} ya está asignado en este horario.`);
       }
     }
   };
