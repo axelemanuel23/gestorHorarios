@@ -79,10 +79,54 @@ const HorarioEditable = () => {
           const nuevosHorarios = data[0].slice(1); // Obtiene los horarios del encabezado
           const nuevasFilas = data.slice(1).map((fila) => fila[0]); // Obtiene los encabezados de filas
           const nuevaMatriz = data.slice(1).map((fila) => fila.slice(1)); // Obtiene la matriz
-
+  
+          // Reconstruir los agentes basados en los datos de la matriz
+          const agentesSet = new Set();
+          nuevaMatriz.forEach((fila) => {
+            fila.forEach((celda) => {
+              if (celda && celda.trim() !== '') {
+                agentesSet.add(celda);
+              }
+            });
+          });
+  
+          // Verificar agentes ya existentes y evitar duplicados
+          const agentesExistentes = new Map(
+            agentes.map((agente) => [`${agente.nombre} ${agente.apellido}`, agente])
+          );
+  
+          const nuevosAgentes = Array.from(agentesSet).map((nombreCompleto) => {
+            const [nombre, apellido] = nombreCompleto.split(' ');
+            if (agentesExistentes.has(nombreCompleto)) {
+              // Si ya existe, devolvemos el agente existente
+              return agentesExistentes.get(nombreCompleto);
+            } else {
+              // Si no existe, creamos un nuevo agente
+              return {
+                id: uuidv4(),
+                nombre,
+                apellido,
+                horas: nuevaMatriz.flat().filter(celda => celda === nombreCompleto).length,
+                color: colors[(agentes.length + agentesExistentes.size) % colors.length], // Asigna colores de forma continua
+                sector: 'peaton', // O asigna un sector predeterminado
+              };
+            }
+          });
+  
+          // Combinar agentes nuevos y existentes
+          const agentesCombinados = [...agentes, ...nuevosAgentes.filter((agente) => !agentesExistentes.has(`${agente.nombre} ${agente.apellido}`))];
+  
+          // Actualizar sectoresData para reflejar los agentes combinados
+          const nuevosSectoresData = sectores.map(sector => ({
+            nombre: sector,
+            agentes: sector === 'peaton' ? agentesCombinados : []
+          }));
+  
           setHorarios(nuevosHorarios);
           setEncabezadosFilas(['Entrada/Salida', ...nuevasFilas]);
           setMatriz(nuevaMatriz);
+          setAgentes(agentesCombinados);
+          setSectoresData(nuevosSectoresData);
         },
         header: false,
         skipEmptyLines: true,
