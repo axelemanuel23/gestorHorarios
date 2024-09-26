@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, ArrowUpDown } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import Papa from 'papaparse'; // Importa PapaParse
+import Papa from 'papaparse';
 
 const colors = [
   'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500',
@@ -11,12 +11,10 @@ const colors = [
 const sectores = ['peaton', 'corredor', 'casilla'];
 
 const HorarioEditable = () => {
-  //Back up  de los horarios
   const [horarios, setHorarios] = useState(() => {
     const saved = localStorage.getItem('horarios');
     return saved ? JSON.parse(saved) : Array(10).fill('');
   });
-  //Back up de los encabezados de filas
   const [encabezadosFilas, setEncabezadosFilas] = useState(() => {
     const saved = localStorage.getItem('encabezadosFilas');
     return saved ? JSON.parse(saved) : Array(11).fill().map((_, index) => `Casilla ${index + 1}`);
@@ -33,7 +31,7 @@ const HorarioEditable = () => {
     const saved = localStorage.getItem('sectoresData');
     return saved ? JSON.parse(saved) : sectores.map(sector => ({ nombre: sector, agentes: [] }));
   });
-
+  
   const [selectedHorario, setSelectedHorario] = useState(null);
   const [horarioTexto, setHorarioTexto] = useState('');
   const [nuevoNombre, setNuevoNombre] = useState('');
@@ -49,43 +47,35 @@ const HorarioEditable = () => {
     localStorage.setItem('sectoresData', JSON.stringify(sectoresData));
   }, [sectoresData, horarios, encabezadosFilas, matriz, agentes]);
 
-  // Función para limpiar el localStorage
-const limpiarLocalStorage = () => {
-  localStorage.removeItem('horarios');
-  localStorage.removeItem('encabezadosFilas');
-  localStorage.removeItem('matriz');
-  localStorage.removeItem('agentes');
-  localStorage.removeItem('sectoresData');
+  const limpiarLocalStorage = () => {
+    localStorage.removeItem('horarios');
+    localStorage.removeItem('encabezadosFilas');
+    localStorage.removeItem('matriz');
+    localStorage.removeItem('agentes');
+    localStorage.removeItem('sectoresData');
 
-  // Reiniciar el estado a sus valores por defecto
-  setHorarios(Array(10).fill(''));
-  setEncabezadosFilas(Array(11).fill().map((_, index) => `Casilla ${index + 1}`));
-  setMatriz(Array(11).fill().map(() => Array(10).fill(null)));
-  setAgentes([]);
-  setSectoresData(sectores.map(sector => ({ nombre: sector, agentes: [] })));
-};
+    setHorarios(Array(10).fill(''));
+    setEncabezadosFilas(Array(11).fill().map((_, index) => `Casilla ${index + 1}`));
+    setMatriz(Array(11).fill().map(() => Array(10).fill(null)));
+    setAgentes([]);
+    setSectoresData(sectores.map(sector => ({ nombre: sector, agentes: [] })));
+  };
 
-  // Función para exportar la matriz a CSV
   const exportarCSV = () => {
-    // Crear los encabezados del CSV
-    const encabezados = ['Entrada/Salida', ...horarios.map((h, i) => `Horario ${i + 1}`)];
+    const datosCSV = [
+      // Encabezados
+      ['tipo', 'id', 'nombre', 'apellido', 'horas', 'sector', 'color'],
+      // Datos de los agentes
+      ...agentes.map(agente => ['agente', agente.id, agente.nombre, agente.apellido, agente.horas, agente.sector, agente.color]),
+      // Encabezados de filas
+      ['encabezado', ...encabezadosFilas],
+      // Horarios
+      ['horario', ...horarios],
+      // Matriz
+      ...matriz.map((fila, index) => ['matriz', index, ...fila])
+    ];
   
-    // Crear la matriz de datos para el CSV
-    const datosCSV = matriz.map((fila, filaIndex) => {
-      return [
-        encabezadosFilas[filaIndex + 1],
-        ...fila.map((celda, colIndex) => {
-          if (celda) {
-            const agente = agentes.find(a => `${a.nombre} ${a.apellido}` === celda);
-            return agente ? [agente.nombre, agente.apellido, agente.horas, agente.sector, agente.color] : ['', '', '', '', ''];
-          }
-          return ['', '', '', '', ''];
-        }).flat()
-      ];
-    });
-  
-    // Unir encabezados y datos
-    const csvContent = Papa.unparse([encabezados, ...datosCSV]);
+    const csvContent = Papa.unparse(datosCSV);
   
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -105,54 +95,47 @@ const limpiarLocalStorage = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const csvData = e.target.result;
-      const parsedData = Papa.parse(csvData, { header: true });
-  
-      const datosImportados = parsedData.data;
-  
-      // Extraer horarios
-      const nuevosHorarios = parsedData.meta.fields.filter(field => field.startsWith('Horario'));
-      setHorarios(nuevosHorarios);
-  
-      // Procesar la matriz y los agentes
+      const parsedData = Papa.parse(csvData, { header: false }).data;
+      
       const nuevosAgentes = [];
-      const nuevaMatriz = datosImportados.map((fila, filaIndex) => {
-        const filaDatos = nuevosHorarios.map((_, colIndex) => {
-          const nombre = fila[`Nombre_${colIndex}`];
-          const apellido = fila[`Apellido_${colIndex}`];
-          const horas = parseInt(fila[`Horas_${colIndex}`], 10) || 0;
-          const sector = fila[`Sector_${colIndex}`];
-          const color = fila[`Color_${colIndex}`];
-  
-          if (nombre && apellido) {
-            const nombreCompleto = `${nombre} ${apellido}`;
-  
-            if (!nuevosAgentes.find(agente => agente.nombre === nombre && agente.apellido === apellido)) {
-              const nuevoAgente = {
-                id: uuidv4(),
-                nombre,
-                apellido,
-                horas,
-                color: color || colors[nuevosAgentes.length % colors.length],
-                sector: sector || 'peaton'
-              };
-              nuevosAgentes.push(nuevoAgente);
+      let nuevosEncabezadosFilas = [];
+      let nuevosHorarios = [];
+      const nuevaMatriz = [];
+      const nuevosSectoresData = sectores.map(sector => ({ nombre: sector, agentes: [] }));
+
+      parsedData.forEach(fila => {
+        switch(fila[0]) {
+          case 'agente':
+            const agente = {
+              id: fila[1],
+              nombre: fila[2],
+              apellido: fila[3],
+              horas: parseInt(fila[4], 10),
+              sector: fila[5],
+              color: fila[6]
+            };
+            nuevosAgentes.push(agente);
+            const sectorIndex = nuevosSectoresData.findIndex(s => s.nombre === agente.sector);
+            if (sectorIndex !== -1) {
+              nuevosSectoresData[sectorIndex].agentes.push(agente);
             }
-            return nombreCompleto;
-          }
-          return null;
-        });
-        return filaDatos;
+            break;
+          case 'encabezado':
+            nuevosEncabezadosFilas = fila.slice(1);
+            break;
+          case 'horario':
+            nuevosHorarios = fila.slice(1);
+            break;
+          case 'matriz':
+            nuevaMatriz.push(fila.slice(2));
+            break;
+        }
       });
-  
-      setMatriz(nuevaMatriz);
+
       setAgentes(nuevosAgentes);
-  
-      // Reorganizar los agentes dentro de los sectores
-      const nuevosSectoresData = sectores.map(sector => ({
-        nombre: sector,
-        agentes: nuevosAgentes.filter(agente => agente.sector === sector)
-      }));
-  
+      setEncabezadosFilas(nuevosEncabezadosFilas);
+      setHorarios(nuevosHorarios);
+      setMatriz(nuevaMatriz);
       setSectoresData(nuevosSectoresData);
     };
   
@@ -379,7 +362,7 @@ const limpiarLocalStorage = () => {
           className="bg-green-500 text-white p-2 rounded mr-2"
         >
           Exportar a CSV
-        </button>*NO FUNCIONA
+        </button>
         <input
           type="file"
           accept=".csv"
