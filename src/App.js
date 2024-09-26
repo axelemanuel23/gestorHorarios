@@ -67,33 +67,26 @@ const limpiarLocalStorage = () => {
 
   // Función para exportar la matriz a CSV
   const exportarCSV = () => {
-    // Preparar datos de los agentes
-    const agentsHeader = ['Nombre', 'Apellido', 'Horas', 'Sector', 'Color'];
-    const agentsData = agentes.map(agente => [
-      agente.nombre,
-      agente.apellido,
-      agente.horas,
-      agente.sector,
-      agente.color
-    ]);
+    // Crear los encabezados del CSV
+    const encabezados = ['Entrada/Salida', ...horarios.map((h, i) => `Horario ${i + 1}`)];
   
-    // Preparar datos de la matriz de horarios
-    const matrixHeader = ['Casilla', ...horarios.map((_, i) => `Horario ${i + 1}`)];
-    const matrixData = matriz.map((fila, filaIndex) => {
+    // Crear la matriz de datos para el CSV
+    const datosCSV = matriz.map((fila, filaIndex) => {
       return [
         encabezadosFilas[filaIndex + 1],
-        ...fila
+        ...fila.map((celda, colIndex) => {
+          if (celda) {
+            const agente = agentes.find(a => `${a.nombre} ${a.apellido}` === celda);
+            return agente ? [agente.nombre, agente.apellido, agente.horas, agente.sector, agente.color] : ['', '', '', '', ''];
+          }
+          return ['', '', '', '', ''];
+        }).flat()
       ];
     });
   
-    // Combinar cabeceras y datos en un solo contenido CSV
-    const csvContent = Papa.unparse([
-      agentsHeader, ...agentsData,
-      [], // Fila vacía para separación
-      matrixHeader, ...matrixData
-    ]);
+    // Unir encabezados y datos
+    const csvContent = Papa.unparse([encabezados, ...datosCSV]);
   
-    // Lógica de exportación
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -113,31 +106,54 @@ const limpiarLocalStorage = () => {
     reader.onload = (e) => {
       const csvData = e.target.result;
       const parsedData = Papa.parse(csvData, { header: true });
+  
       const datosImportados = parsedData.data;
   
-      // Separar datos de agentes y matriz
-      const agentDataEndIndex = datosImportados.findIndex(row => row.Casilla); // Encuentra el índice donde comienza la matriz
+      // Extraer horarios
+      const nuevosHorarios = parsedData.meta.fields.filter(field => field.startsWith('Horario'));
+      setHorarios(nuevosHorarios);
   
-      // Extraer datos de agentes
-      const newAgentsData = datosImportados.slice(0, agentDataEndIndex);
-      const nuevosAgentes = newAgentsData.map(row => ({
-        id: uuidv4(),
-        nombre: row.Nombre,
-        apellido: row.Apellido,
-        horas: parseInt(row.Horas, 10) || 0,
-        sector: row.Sector || 'peaton',
-        color: row.Color || colors[nuevosAgentes.length % colors.length]
-      }));
+      // Procesar la matriz y los agentes
+      const nuevosAgentes = [];
+      const nuevaMatriz = datosImportados.map((fila, filaIndex) => {
+        const filaDatos = nuevosHorarios.map((_, colIndex) => {
+          const nombre = fila[`Nombre_${colIndex}`];
+          const apellido = fila[`Apellido_${colIndex}`];
+          const horas = parseInt(fila[`Horas_${colIndex}`], 10) || 0;
+          const sector = fila[`Sector_${colIndex}`];
+          const color = fila[`Color_${colIndex}`];
   
-      setAgentes(nuevosAgentes);
+          if (nombre && apellido) {
+            const nombreCompleto = `${nombre} ${apellido}`;
   
-      // Extraer datos de la matriz
-      const matrixData = datosImportados.slice(agentDataEndIndex + 1); // Saltar la fila vacía
-      const nuevaMatriz = matrixData.map(fila => {
-        return horarios.map((_, colIndex) => fila[`Horario ${colIndex + 1}`] || null);
+            if (!nuevosAgentes.find(agente => agente.nombre === nombre && agente.apellido === apellido)) {
+              const nuevoAgente = {
+                id: uuidv4(),
+                nombre,
+                apellido,
+                horas,
+                color: color || colors[nuevosAgentes.length % colors.length],
+                sector: sector || 'peaton'
+              };
+              nuevosAgentes.push(nuevoAgente);
+            }
+            return nombreCompleto;
+          }
+          return null;
+        });
+        return filaDatos;
       });
   
       setMatriz(nuevaMatriz);
+      setAgentes(nuevosAgentes);
+  
+      // Reorganizar los agentes dentro de los sectores
+      const nuevosSectoresData = sectores.map(sector => ({
+        nombre: sector,
+        agentes: nuevosAgentes.filter(agente => agente.sector === sector)
+      }));
+  
+      setSectoresData(nuevosSectoresData);
     };
   
     reader.readAsText(file);
@@ -357,6 +373,20 @@ const limpiarLocalStorage = () => {
             <Plus size={20} />
           </button>
         </div>
+      <div className="mt-4 mb-4">
+        <button
+          onClick={exportarCSV}
+          className="bg-green-500 text-white p-2 rounded mr-2"
+        >
+          Exportar a CSV
+        </button>*NO FUNCIONA
+        <input
+          type="file"
+          accept=".csv"
+          onChange={importarCSV}
+          className="p-2 border"
+        />
+      </div>
         <div className="flex items-center mb-2">
           <button
             onClick={cambiarOrdenamiento}
@@ -396,26 +426,13 @@ const limpiarLocalStorage = () => {
             </div>
           ))}
         </div>
-      </div>
-      <div className="mt-4 mb-4">
-        <button
-          onClick={exportarCSV}
-          className="bg-green-500 text-white p-2 rounded mr-2"
-        >
-          Exportar a CSV
-        </button>
-        <input
-          type="file"
-          accept=".csv"
-          onChange={importarCSV}
-          className="p-2 border"
-        />
-        <button
-          onClick={limpiarLocalStorage} // Agrega el botón aquí
-          className="bg-red-500 text-white p-2 rounded ml-2"
-        >
-          Limpiar Datos
-        </button>
+        
+      <button
+        onClick={limpiarLocalStorage} // Agrega el botón aquí
+        className="bg-red-500 text-white p-2 rounded ml-2"
+      >Borrar Todo
+        <Trash2 size={14} />
+      </button>
       </div>
       <div className="mt-4">
           <h3 className="text-lg font-semibold mb-2">Seleccionar Horario</h3>
