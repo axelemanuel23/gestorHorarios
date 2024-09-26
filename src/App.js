@@ -51,31 +51,28 @@ const HorarioEditable = () => {
 
   // Función para exportar la matriz a CSV
   const exportarCSV = () => {
-    // Crear los encabezados del CSV, incluyendo columnas para sector y color
-    const encabezados = ['Entrada/Salida', ...horarios.map((h, i) => `Horario ${i + 1}`), 'Sector', 'Color'];
+    // Crear los encabezados del CSV
+    const encabezados = ['Entrada/Salida', ...horarios.map((h, i) => `Horario ${i + 1}`)];
     
-    // Crear la matriz de datos para el CSV, incluyendo sectores y colores
+    // Añadir encabezados adicionales para cada agente en cada columna de la matriz
+    const agenteEncabezados = ['Nombre', 'Apellido', 'Horas', 'Sector', 'Color'];
+    const csvData = [encabezados, ...agenteEncabezados];
+  
+    // Crear la matriz de datos para el CSV
     const datosCSV = matriz.map((fila, filaIndex) => {
       const filaDatos = fila.map((celda, colIndex) => {
         if (celda) {
           const agente = agentes.find(a => `${a.nombre} ${a.apellido}` === celda);
-          return agente ? celda : '';
+          return agente ? [agente.nombre, agente.apellido, agente.horas, agente.sector, agente.color] : ['', '', '', '', ''];
         }
-        return '';
+        return ['', '', '', '', ''];
       });
   
-      // Obtener el primer agente de la fila para obtener el sector y color
-      const agentePrincipal = agentes.find(a => `${a.nombre} ${a.apellido}` === fila[0]);
-      const sector = agentePrincipal ? agentePrincipal.sector : '';
-      const color = agentePrincipal ? agentePrincipal.color : '';
-  
-      return [encabezadosFilas[filaIndex + 1], ...filaDatos, sector, color];
+      return [encabezadosFilas[filaIndex + 1], ...filaDatos.flat()];
     });
   
-    // Añadir el encabezado al principio de los datos
-    const csvData = [encabezados, ...datosCSV];
-    
-    const csvContent = Papa.unparse(csvData);
+    // Unir encabezados y datos
+    const csvContent = Papa.unparse([encabezados, ...datosCSV]);
   
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -96,57 +93,53 @@ const HorarioEditable = () => {
     reader.onload = (e) => {
       const csvData = e.target.result;
       const parsedData = Papa.parse(csvData, { header: true });
-      
+  
       const datosImportados = parsedData.data;
-      
-      // Procesar horarios y matriz
-      const nuevosHorarios = parsedData.meta.fields.slice(1, -2); // Excluyendo 'Entrada/Salida', 'Sector' y 'Color'
+  
+      // Extraer horarios
+      const nuevosHorarios = parsedData.meta.fields.filter(field => field.startsWith('Horario'));
       setHorarios(nuevosHorarios);
   
-      const nuevaMatriz = datosImportados.map((fila) => {
-        return nuevosHorarios.map((_, index) => fila[`Horario ${index + 1}`] || null);
-      });
-  
-      setMatriz(nuevaMatriz);
-  
-      // Procesar encabezados de filas
-      const nuevosEncabezados = datosImportados.map((fila) => fila['Entrada/Salida']);
-      setEncabezadosFilas([encabezadosFilas[0], ...nuevosEncabezados]);
-  
-      // Procesar agentes y sectores
+      // Procesar la matriz y los agentes
       const nuevosAgentes = [];
-      const nuevosSectoresData = sectores.map(sector => ({ nombre: sector, agentes: [] }));
+      const nuevaMatriz = datosImportados.map((fila, filaIndex) => {
+        const filaDatos = nuevosHorarios.map((_, colIndex) => {
+          const nombre = fila[`Nombre_${colIndex}`];
+          const apellido = fila[`Apellido_${colIndex}`];
+          const horas = parseInt(fila[`Horas_${colIndex}`], 10) || 0;
+          const sector = fila[`Sector_${colIndex}`];
+          const color = fila[`Color_${colIndex}`];
   
-      datosImportados.forEach((fila, filaIndex) => {
-        nuevosHorarios.forEach((_, colIndex) => {
-          const nombreCompleto = fila[`Horario ${colIndex + 1}`];
-          if (nombreCompleto) {
-            const sector = fila['Sector'];
-            const color = fila['Color'];
+          if (nombre && apellido) {
+            const nombreCompleto = `${nombre} ${apellido}`;
   
-            if (!nuevosAgentes.find(agente => `${agente.nombre} ${agente.apellido}` === nombreCompleto)) {
-              const [nombre, apellido] = nombreCompleto.split(' ');
+            if (!nuevosAgentes.find(agente => agente.nombre === nombre && agente.apellido === apellido)) {
               const nuevoAgente = {
                 id: uuidv4(),
                 nombre,
                 apellido,
-                horas: 0,
+                horas,
                 color: color || colors[nuevosAgentes.length % colors.length],
-                sector: sector || 'peaton',
+                sector: sector || 'peaton'
               };
-  
               nuevosAgentes.push(nuevoAgente);
-  
-              const sectorData = nuevosSectoresData.find(s => s.nombre === nuevoAgente.sector);
-              if (sectorData) {
-                sectorData.agentes.push(nuevoAgente);
-              }
             }
+            return nombreCompleto;
           }
+          return null;
         });
+        return filaDatos;
       });
   
+      setMatriz(nuevaMatriz);
       setAgentes(nuevosAgentes);
+  
+      // Reorganizar los agentes dentro de los sectores
+      const nuevosSectoresData = sectores.map(sector => ({
+        nombre: sector,
+        agentes: nuevosAgentes.filter(agente => agente.sector === sector)
+      }));
+  
       setSectoresData(nuevosSectoresData);
     };
   
