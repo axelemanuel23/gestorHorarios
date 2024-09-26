@@ -395,7 +395,7 @@ const HorarioEditable = () => {
                 {agentes.map(agente => (
                   <div
                     key={agente.id} // Usar el id único aquí
-                    className={`${agente.color} p-2 rounded flex items-center text-white`}
+                    className={`${agente.color} p-2 rounded flex items-center text-white cursor-pointer`}
                     draggable
                     onDragStart={(e) => manejarDragStart(e, agente)}
                   >
@@ -434,7 +434,7 @@ const HorarioEditable = () => {
           </select>
           <button
             onClick={generarTextoHorario}
-            className="bg-blue-500 text-white p-2 rounded ml-2"
+            className="bg-blue-500 text-white p-2 rounded ml-2 cursor-pointer"
             disabled={selectedHorario === null}
           >
             Generar Texto
