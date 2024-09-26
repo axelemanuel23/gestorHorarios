@@ -8,7 +8,7 @@ const colors = [
   'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-cyan-500'
 ];
 
-const sectores = ['peaton', 'corredor', 'casilla'];
+const sectores = ['Micro', 'Corredor', 'Casilla'];
 
 const HorarioEditable = () => {
   const [horarios, setHorarios] = useState(() => {
@@ -36,7 +36,7 @@ const HorarioEditable = () => {
   const [horarioTexto, setHorarioTexto] = useState('');
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevoApellido, setNuevoApellido] = useState('');
-  const [nuevoSector, setNuevoSector] = useState('peaton');
+  const [nuevoSector, setNuevoSector] = useState('Micro');
   const [ordenamiento, setOrdenamiento] = useState('alfabetico');
 
   useEffect(() => {
@@ -144,14 +144,24 @@ const HorarioEditable = () => {
 
   const generarTextoHorario = () => {
     if (selectedHorario === null) return;
-
-    let texto = `Horario: ${horarios[selectedHorario]}\n`;
-    matriz.forEach((fila, indexFila) => {
-      if (fila[selectedHorario]) {
-        texto += `Casilla ${indexFila + 1}: ${fila[selectedHorario]}\n`;
-      }
-    });
-
+    console.log(sectoresData)
+    let texto = ""
+    if(selectedHorario === -1 ){
+      texto += `-- Sectores -- \n`
+      sectoresData.forEach((fila, index) => {
+        texto += `${fila.nombre}:\n`
+        fila.agentes.forEach((columna, index) => {
+          texto += ` - ${columna.nombre} ${columna.apellido}\n` 
+        })
+      })
+    }else{
+      texto += `Horario: ${horarios[selectedHorario]}\n`;
+      matriz.forEach((fila, indexFila) => {
+        if (fila[selectedHorario]) {
+          texto += `Casilla ${indexFila + 1}: ${fila[selectedHorario]}\n`;
+        }
+      });
+    }
     setHorarioTexto(texto.trim());
   }
 
@@ -431,6 +441,7 @@ const HorarioEditable = () => {
             {horarios.map((horario, index) => (
               <option key={index} value={index}>{horario}</option>
             ))}
+            <option value={-1} >Sectores</option>
           </select>
           <button
             onClick={generarTextoHorario}
