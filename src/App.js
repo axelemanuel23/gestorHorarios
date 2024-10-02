@@ -250,32 +250,40 @@ const HorarioEditable = () => {
       const nuevaMatriz = matriz.map(row => [...row]);
       const nombreCompleto = `${agenteData.nombre} ${agenteData.apellido}`;
       
+      // Función para verificar si el agente ya está en otra fila de la misma columna
+      const agenteYaEnColumna = (col) => nuevaMatriz.some((row, idx) => 
+        idx !== fila && row[col] === nombreCompleto
+      );
+  
       // Check if it's a move within the matrix
       if (filaOrigen !== undefined && columnaOrigen !== undefined) {
-        // Permitir el movimiento si es en la misma columna o si el destino está vacío
-        if (columna === columnaOrigen || nuevaMatriz[fila][columna] === null || nuevaMatriz[fila][columna] === '') {
-          // Remove from original position
+        if (columna === columnaOrigen) {
+          // Movimiento dentro de la misma columna, permitido
           nuevaMatriz[filaOrigen][columnaOrigen] = null;
-          // Place in new position
+          nuevaMatriz[fila][columna] = nombreCompleto;
+          setMatriz(nuevaMatriz);
+        } else if (nuevaMatriz[fila][columna] === null || nuevaMatriz[fila][columna] === '') {
+          // Movimiento a otra columna vacía, verificar si ya está en esa columna
+          if (agenteYaEnColumna(columna)) {
+            alert(`${nombreCompleto} ya está asignado en este horario.`);
+            return;
+          }
+          // Realizar el movimiento
+          nuevaMatriz[filaOrigen][columnaOrigen] = null;
           nuevaMatriz[fila][columna] = nombreCompleto;
           setMatriz(nuevaMatriz);
         } else {
-          // Si intenta mover a una columna diferente que ya está ocupada
-          alert(`No se puede mover a esta posición. La columna ya está ocupada por otro agente.`);
+          // Intento de mover a una columna diferente que ya está ocupada
+          alert(`No se puede mover a esta posición. La casilla ya está ocupada por otro agente.`);
           return;
         }
       } else {
-        // It's a new assignment, check for existing assignments in the column
-        const yaAsignadoEnColumna = nuevaMatriz.some((row, index) => 
-          row[columna] === nombreCompleto
-        );
-        
-        if (yaAsignadoEnColumna) {
+        // It's a new assignment
+        if (agenteYaEnColumna(columna)) {
           alert(`${nombreCompleto} ya está asignado en este horario.`);
           return;
         }
   
-        // Place in new position for new assignment
         if (nuevaMatriz[fila][columna] === null || nuevaMatriz[fila][columna] === '') {
           nuevaMatriz[fila][columna] = nombreCompleto;
           setMatriz(nuevaMatriz);
