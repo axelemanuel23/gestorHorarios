@@ -244,8 +244,28 @@ const HorarioEditable = () => {
     const columnaOrigen = data.columna;
   
     if (nuevoSector) {
-      // Existing code for handling sector changes
-      // ...
+      // Actualizar sectoresData para reflejar el cambio de sector
+      const nuevosSectoresData = sectoresData.map(sectorData => {
+        if (sectorData.nombre === agenteData.sector) {
+          return {
+            ...sectorData,
+            agentes: sectorData.agentes.filter(agente => agente.id !== agenteData.id)
+          };
+        } else if (sectorData.nombre === nuevoSector) {
+          return {
+            ...sectorData,
+            agentes: [...sectorData.agentes, { ...agenteData, sector: nuevoSector }]
+          };
+        }
+        return sectorData;
+      });
+      setSectoresData(nuevosSectoresData);
+      // También actualizar la lista de agentes con el nuevo sector
+      const nuevosAgentes = agentes.map(agente =>
+        agente.id === agenteData.id ? { ...agente, sector: nuevoSector } : agente
+      );
+      setAgentes(nuevosAgentes);
+
     } else {
       const nuevaMatriz = matriz.map(row => [...row]);
       const nombreCompleto = `${agenteData.nombre} ${agenteData.apellido}`;
@@ -347,7 +367,7 @@ const HorarioEditable = () => {
   return (
     <div className="p-4 bg-gray-100 min-h-screen">
       <div className="mb-4">
-        <h2 className="text-xl font-bold mb-2">Agentes</h2>
+        <h2 className="text-xl font-bold mb-2">Registrar Agentes</h2>
         <div className="flex items-center mb-2">
           <input
             type="text"
@@ -419,7 +439,7 @@ const HorarioEditable = () => {
                     draggable
                     onDragStart={(e) => manejarDragStart(e, agente)}
                   >
-                    <span className="mr-2">{agente.apellido}, {agente.nombre} ({agente.horas}h)</span>
+                    <span className="mr-2">{agente.apellido}, {agente.nombre} ({agente.horas} h)</span>
                     <button
                       onClick={() => eliminarAgente(agente.id)} // Pasar el id aquí también
                       className="text-red-200 hover:text-red-100 ml-auto"
@@ -461,7 +481,6 @@ const HorarioEditable = () => {
             Generar Texto
           </button>
         </div>
-        
         {horarioTexto && (
           <div className="mt-4 bg-white p-4 rounded shadow">
             <h3 className="text-lg font-semibold mb-2">Texto Generado</h3>
