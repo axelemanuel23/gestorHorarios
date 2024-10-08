@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, ArrowUpDown } from 'lucide-react';
+import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import { Plus, Trash2, ArrowUpDown, BarChart2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
+import EstadisticasCasillas from './EstadisticasCasillas';
 
 const colors = [
   'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500',
@@ -15,13 +17,13 @@ const HorarioEditable = () => {
     const saved = localStorage.getItem('horarios');
     return saved ? JSON.parse(saved) : Array(10).fill('');
   });
-  const [encabezadosFilas, setEncabezadosFilas] = useState(() => {
+  const [encabezadosFilas, setEncabezadosFilas] = useState(() => {  
     const saved = localStorage.getItem('encabezadosFilas');
-    return saved ? JSON.parse(saved) : Array(11).fill().map((_, index) => `Casilla ${index + 1}`);
+    return saved ? JSON.parse(saved) : Array(12).fill().map((_, index) => `Casilla ${index + 1}`);
   });
   const [matriz, setMatriz] = useState(() => {
     const saved = localStorage.getItem('matriz');
-    return saved ? JSON.parse(saved) : Array(11).fill().map(() => Array(10).fill(null));
+    return saved ? JSON.parse(saved) : Array(12).fill().map(() => Array(10).fill(null));
   });
   const [agentes, setAgentes] = useState(() => {
     const saved = localStorage.getItem('agentes');
@@ -32,12 +34,34 @@ const HorarioEditable = () => {
     return saved ? JSON.parse(saved) : sectores.map(sector => ({ nombre: sector, agentes: [] }));
   });
   
-  const [selectedHorario, setSelectedHorario] = useState(null);
+  const [selectedHorarioCasilla, setSelectedHorarioCasilla] = useState(null);
   const [horarioTexto, setHorarioTexto] = useState('');
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevoApellido, setNuevoApellido] = useState('');
   const [nuevoSector, setNuevoSector] = useState('Micro');
   const [ordenamiento, setOrdenamiento] = useState('alfabetico');
+
+  const [selectedShift, setSelectedShift] = useState('mañana');
+  const [selectedSector, setSelectedSector] = useState('entrada');
+
+  const shiftHorarios = {
+    mañana: ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'],
+    tarde: ['14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'],
+    noche: ['22:00', '23:00', '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00']
+  };
+
+  const sectorEncabezados = {
+    entrada: Array(12).fill().map((_, index) => `Entrada ${index + 1}`),
+    salida: Array(12).fill().map((_, index) => `Salida ${index + 1}`)
+  };
+
+  useEffect(() => {
+    setHorarios(shiftHorarios[selectedShift]);
+  }, [selectedShift]);
+
+  useEffect(() => {
+    setEncabezadosFilas(sectorEncabezados[selectedSector]);
+  }, [selectedSector]);
 
   useEffect(() => {
     localStorage.setItem('horarios', JSON.stringify(horarios));
@@ -47,6 +71,9 @@ const HorarioEditable = () => {
     localStorage.setItem('sectoresData', JSON.stringify(sectoresData));
   }, [sectoresData, horarios, encabezadosFilas, matriz, agentes]);
 
+  console.log(encabezadosFilas);
+  console.log(matriz);
+
   const limpiarLocalStorage = () => {
     localStorage.removeItem('horarios');
     localStorage.removeItem('encabezadosFilas');
@@ -55,8 +82,8 @@ const HorarioEditable = () => {
     localStorage.removeItem('sectoresData');
 
     setHorarios(Array(10).fill(''));
-    setEncabezadosFilas(Array(11).fill().map((_, index) => `Casilla ${index + 1}`));
-    setMatriz(Array(11).fill().map(() => Array(10).fill(null)));
+    setEncabezadosFilas(Array(12).fill().map((_, index) => `Casilla ${index + 1}`));
+    setMatriz(Array(12).fill().map(() => Array(10).fill(null)));
     setAgentes([]);
     setSectoresData(sectores.map(sector => ({ nombre: sector, agentes: [] })));
   };
@@ -68,20 +95,22 @@ const HorarioEditable = () => {
       // Datos de los agentes
       ...agentes.map(agente => ['agente', agente.id, agente.nombre, agente.apellido, agente.horas, agente.sector, agente.color]),
       // Encabezados de filas
-      ['encabezado', ...encabezadosFilas],
+      ['encabezado', selectedSector, ...encabezadosFilas],
       // Horarios
       ['horario', ...horarios],
       // Matriz
       ...matriz.map((fila, index) => ['matriz', index, ...fila])
     ];
   
-    const csvContent = Papa.unparse(datosCSV);
+    const csvContent = Papa.unparse(datosCSV);  
   
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'horarios.csv');
+    const fechaActual = new Date().toISOString().slice(0, 19).replace(/:/g, '-'); // Formato: YYYY-MM-DDTHH-MM-SS
+    const nombreArchivo = `horario_${fechaActual}.csv`; // Puedes ajustar la extensión del archivo
+    link.setAttribute('download', nombreArchivo);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -143,10 +172,10 @@ const HorarioEditable = () => {
   };
 
   const generarTextoHorario = () => {
-    if (selectedHorario === null) return;
+    if (selectedHorarioCasilla === null) return;
     console.log(sectoresData)
     let texto = ""
-    if(selectedHorario === -1 ){
+    if(selectedHorarioCasilla === -1 ){
       texto += `-- Sectores -- \n`
       sectoresData.forEach((fila, index) => {
         texto += `${fila.nombre}:\n`
@@ -155,10 +184,10 @@ const HorarioEditable = () => {
         })
       })
     }else{
-      texto += `Horario: ${horarios[selectedHorario]}\n`;
+      texto += `Horario: ${horarios[selectedHorarioCasilla]}\n`;
       matriz.forEach((fila, indexFila) => {
-        if (fila[selectedHorario]) {
-          texto += `Casilla ${indexFila + 1}: ${fila[selectedHorario]}\n`;
+        if (fila[selectedHorarioCasilla]) {
+          texto += `Casilla ${indexFila + 1}: ${fila[selectedHorarioCasilla]}\n`;
         }
       });
     }
@@ -366,6 +395,25 @@ const HorarioEditable = () => {
 
   return (
     <div className="p-4 bg-gray-100 min-h-screen">
+      <div className="mb-4 flex space-x-4">
+        <select
+          value={selectedShift}
+          onChange={(e) => setSelectedShift(e.target.value)}
+          className="border p-2"
+        >
+          <option value="mañana">Mañana</option>
+          <option value="tarde">Tarde</option>
+          <option value="noche">Noche</option>
+        </select>
+        <select
+          value={selectedSector}
+          onChange={(e) => setSelectedSector(e.target.value)}
+          className="border p-2"
+        >
+          <option value="entrada">Entrada</option>
+          <option value="salida">Salida</option>
+        </select>
+      </div>
       <div className="mb-4">
         <h2 className="text-xl font-bold mb-2">Registrar Agentes</h2>
         <div className="flex items-center mb-2">
@@ -402,7 +450,7 @@ const HorarioEditable = () => {
       <div className="mt-4 mb-4">
         <button
           onClick={exportarCSV}
-          className="bg-green-500 text-white p-2 rounded mr-2"
+          className="bg-green-500 text-white p-2 rounded shadow transition-transform transform hover:scale-105 hover:shadow-lg"
         >
           Exportar a CSV
         </button>
@@ -412,11 +460,18 @@ const HorarioEditable = () => {
           onChange={importarCSV}
           className="p-2 border"
         />
+        <Link
+          to="/estadisticas"
+          className="bg-purple-500 text-white p-2 w-44 rounded mr-2 flex items-center shadow transition-transform transform hover:scale-105 hover:shadow-lg"
+        >
+          <BarChart2 size={20} className="mr-2" />
+          Ver Estadísticas
+      </Link>
       </div>
-        <div className="flex items-center mb-2">
+        <div className="flex items-center mb-2 ">
           <button
             onClick={cambiarOrdenamiento}
-            className="bg-gray-300 text-gray-700 p-2 rounded flex items-center"
+            className="bg-gray-300 text-gray-700 p-2 rounded flex items-center shadow transition-transform transform hover:scale-105 hover:shadow-lg"
           >
             <ArrowUpDown size={20} className="mr-2" />
             {ordenamiento === 'alfabetico' ? 'Ordenado alfabeticamente' : 'Ordenado por carga horaria'}
@@ -435,7 +490,7 @@ const HorarioEditable = () => {
                 {agentes.map(agente => (
                   <div
                     key={agente.id} // Usar el id único aquí
-                    className={`${agente.color} p-2 rounded flex items-center text-white cursor-pointer`}
+                    className={`${agente.color} p-2 rounded flex items-center text-white cursor-pointer shadow transition-transform transform hover:scale-105 hover:shadow-lg`}
                     draggable
                     onDragStart={(e) => manejarDragStart(e, agente)}
                   >
@@ -455,7 +510,7 @@ const HorarioEditable = () => {
         
       <button
         onClick={limpiarLocalStorage} // Agrega el botón aquí
-        className="bg-red-500 text-white p-2 rounded ml-2"
+        className="bg-red-500 text-white p-2 rounded ml-2 shadow transition-transform transform hover:scale-105 hover:shadow-lg"
       >Borrar Todo
         <Trash2 size={14} />
       </button>
@@ -464,8 +519,8 @@ const HorarioEditable = () => {
           <h3 className="text-lg font-semibold mb-2">Seleccionar Horario</h3>
           <select
             className="border p-2 mb-2"
-            value={selectedHorario || ''}
-            onChange={(e) => setSelectedHorario(Number(e.target.value))}
+            value={selectedHorarioCasilla || ''}
+            onChange={(e) => setSelectedHorarioCasilla(Number(e.target.value))}
           >
             <option value="" disabled>Selecciona un horario</option>
             {horarios.map((horario, index) => (
@@ -475,8 +530,8 @@ const HorarioEditable = () => {
           </select>
           <button
             onClick={generarTextoHorario}
-            className="bg-blue-500 text-white p-2 rounded ml-2 cursor-pointer"
-            disabled={selectedHorario === null}
+            className="bg-blue-500 text-white p-2 rounded ml-2 cursor-pointer shadow transition-transform transform hover:scale-105 hover:shadow-lg"
+            disabled={selectedHorarioCasilla === null}
           >
             Generar Texto
           </button>
@@ -487,7 +542,7 @@ const HorarioEditable = () => {
             <pre className="whitespace-pre-wrap">{horarioTexto}</pre>
             <button
               onClick={eliminarTextoHorario}
-              className="bg-red-500 text-white p-2 rounded mt-2"
+              className="bg-red-500 text-white p-2 rounded mt-2 shadow transition-transform transform hover:scale-105 hover:shadow-lg"
             >
               Eliminar Texto
             </button>
@@ -498,23 +553,11 @@ const HorarioEditable = () => {
           <thead>
             <tr>
               <th className="border p-2 w-32">
-                <input
-                  type="text"
-                  value={encabezadosFilas[0]}
-                  onChange={(e) => editarEncabezadoFila(0, e.target.value)}
-                  className="w-full text-center font-bold"
-                  placeholder="Entrada/Salida"
-                />
+                {selectedSector === 'entrada' ? 'Entradas' : 'Salidas'}
               </th>
               {horarios.map((horario, index) => (
                 <th key={index} className="border p-2">
-                  <input
-                    type="text"
-                    value={horario}
-                    onChange={(e) => editarHorario(index, e.target.value)}
-                    className="w-full text-center"
-                    placeholder={`Horario ${index + 1}`}
-                  />
+                  {horario}
                 </th>
               ))}
             </tr>
@@ -525,7 +568,7 @@ const HorarioEditable = () => {
                 <td className="border p-2 w-32">
                   <input
                     type="text"
-                    value={encabezadosFilas[filaIndex + 1]}
+                    value={encabezadosFilas[filaIndex]}
                     onChange={(e) => editarEncabezadoFila(filaIndex + 1, e.target.value)}
                     className="w-full font-bold"
                   />
@@ -540,7 +583,7 @@ const HorarioEditable = () => {
                 >
                   {celda && (
                     <div 
-                      className={`w-full h-full flex items-center justify-center ${agentes.find(a => `${a.nombre} ${a.apellido}` === celda)?.color} text-white rounded cursor-pointer`}
+                      className={`w-full h-full flex items-center justify-center ${agentes.find(a => `${a.nombre} ${a.apellido}` === celda)?.color} text-white rounded cursor-pointer shadow transition-transform transform hover:scale-105 hover:shadow-lg`}
                       draggable
                       onDragStart={(e) => manejarDragStart(e, { nombre: celda.split(' ')[0], apellido: celda.split(' ')[1] }, filaIndex, columnaIndex)}
                     >
@@ -558,4 +601,15 @@ const HorarioEditable = () => {
   );
 };
 
-export default HorarioEditable;
+const App = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<HorarioEditable />} />
+        <Route path="/estadisticas" element={<EstadisticasCasillas />} />
+      </Routes>
+    </Router>
+  );
+};
+
+export default App;
