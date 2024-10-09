@@ -46,8 +46,8 @@ const HorarioEditable = () => {
 
   const shiftHorarios = {
     mañana: ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'],
-    tarde: ['14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'],
-    noche: ['22:00', '23:00', '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00']
+    tarde: ['15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00','00:00'],
+    noche: ['21:00','22:00', '23:00', '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00']
   };
 
   const sectorEncabezados = {
@@ -108,8 +108,10 @@ const HorarioEditable = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    const fechaActual = new Date().toISOString().slice(0, 19).replace(/:/g, '-'); // Formato: YYYY-MM-DDTHH-MM-SS
-    const nombreArchivo = `horario_${fechaActual}.csv`; // Puedes ajustar la extensión del archivo
+    const fecha = new Date();
+    fecha.setHours(fecha.getHours()-3)
+    const fechaActual = fecha.toISOString().slice(0, 19).replace(/:/g, '-'); // Formato: YYYY-MM-DDTHH-MM-SS
+    const nombreArchivo = `${selectedSector}_${selectedShift}_${fechaActual}.csv`; // Puedes ajustar la extensión del archivo
     link.setAttribute('download', nombreArchivo);
     document.body.appendChild(link);
     link.click();
@@ -196,12 +198,6 @@ const HorarioEditable = () => {
 
   const eliminarTextoHorario = () => {
     setHorarioTexto('');
-  };
-
-  const editarHorario = (index, valor) => {
-    const nuevosHorarios = [...horarios];
-    nuevosHorarios[index] = valor;
-    setHorarios(nuevosHorarios);
   };
 
   const editarEncabezadoFila = (index, valor) => {
