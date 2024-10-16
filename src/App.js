@@ -12,7 +12,6 @@ const colors = [
 
 const sectores = ['Micro', 'Corredor', 'Casilla'];
 
-const [, forceUpdate] = useReducer(x => x + 1, 0);
 
 const HorarioEditable = () => {
   const [horarios, setHorarios] = useState(() => {
@@ -35,7 +34,9 @@ const HorarioEditable = () => {
     const saved = localStorage.getItem('sectoresData');
     return saved ? JSON.parse(saved) : sectores.map(sector => ({ nombre: sector, agentes: [] }));
   });
+
   
+  const [confirmationModal, setConfirmationModal] = useState({ show: false, action: null });
   const [selectedHorarioCasilla, setSelectedHorarioCasilla] = useState(null);
   const [horarioTexto, setHorarioTexto] = useState('');
   const [nuevoNombre, setNuevoNombre] = useState('');
@@ -45,6 +46,8 @@ const HorarioEditable = () => {
 
   const [selectedShift, setSelectedShift] = useState('mañana');
   const [selectedSector, setSelectedSector] = useState('entrada');
+  
+  const [importedData, setImportedData] = useState(null);
 
   const shiftHorarios = {
     mañana: ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'],
@@ -56,6 +59,19 @@ const HorarioEditable = () => {
     entrada: Array(12).fill().map((_, index) => `Entrada ${index + 1}`),
     salida: Array(12).fill().map((_, index) => `Salida ${index + 1}`)
   };
+
+  useEffect(() => {
+    if (importedData) {
+      setAgentes(importedData.nuevosAgentes);
+      setEncabezadosFilas(importedData.nuevosEncabezadosFilas);
+      setHorarios(importedData.nuevosHorarios);
+      setMatriz(importedData.nuevaMatriz);
+      setSectoresData(importedData.nuevosSectoresData);
+      setSelectedSector(importedData.selectedSector);
+      setSelectedShift(importedData.selectedShift);
+      setImportedData(null); // Limpiar los datos importados después de usarlos
+    }
+  }, [importedData]);
 
   useEffect(() => {
     setHorarios(shiftHorarios[selectedShift]);
@@ -73,8 +89,6 @@ const HorarioEditable = () => {
     localStorage.setItem('sectoresData', JSON.stringify(sectoresData));
   }, [sectoresData, horarios, encabezadosFilas, matriz, agentes]);
 
-  console.log(encabezadosFilas);
-  console.log(matriz);
 
   const limpiarLocalStorage = () => {
     localStorage.removeItem('horarios');
@@ -124,7 +138,7 @@ const HorarioEditable = () => {
   const importarCSV = (event) => {
     const file = event.target.files[0];
     if (!file) return;
-  
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const csvData = e.target.result;
@@ -135,7 +149,9 @@ const HorarioEditable = () => {
       let nuevosHorarios = [];
       const nuevaMatriz = [];
       const nuevosSectoresData = sectores.map(sector => ({ nombre: sector, agentes: [] }));
-  
+      let selectedSector = '';
+      let selectedShift = '';
+
       parsedData.forEach(fila => {
         switch(fila[0]) {
           case 'agente':
@@ -154,42 +170,32 @@ const HorarioEditable = () => {
             }
             break;
           case 'encabezado':
-            setSelectedSector(fila[1]); // Actualiza el sector seleccionado
+            selectedSector = fila[1];
             nuevosEncabezadosFilas = fila.slice(2);
             break;
           case 'horario':
             nuevosHorarios = fila.slice(1);
-            // Determina el turno basado en los horarios importados
-            if (nuevosHorarios[0] === '06:00') setSelectedShift('mañana');
-            else if (nuevosHorarios[0] === '15:00') setSelectedShift('tarde');
-            else if (nuevosHorarios[0] === '21:00') setSelectedShift('noche');
+            if (nuevosHorarios[0] === '06:00') selectedShift = 'mañana';
+            else if (nuevosHorarios[0] === '15:00') selectedShift = 'tarde';
+            else if (nuevosHorarios[0] === '21:00') selectedShift = 'noche';
             break;
           case 'matriz':
             nuevaMatriz.push(fila.slice(2).map(celda => celda === '' ? null : celda));
             break;
         }
       });
-  
-      setAgentes(nuevosAgentes);
-      setEncabezadosFilas(nuevosEncabezadosFilas);
-      setHorarios(nuevosHorarios);
-      setMatriz(nuevaMatriz);
-      setSectoresData(nuevosSectoresData);
-  
-      // Asegúrate de que los estados se actualicen antes de continuar
-      Promise.all([
-        new Promise(resolve => setAgentes(nuevosAgentes, resolve)),
-        new Promise(resolve => setEncabezadosFilas(nuevosEncabezadosFilas, resolve)),
-        new Promise(resolve => setHorarios(nuevosHorarios, resolve)),
-        new Promise(resolve => setMatriz(nuevaMatriz, resolve)),
-        new Promise(resolve => setSectoresData(nuevosSectoresData, resolve))
-      ]).then(() => {
-        console.log("Todos los estados han sido actualizados");
-        // Forzar una actualización del componente
-        forceUpdate();
+
+      setImportedData({
+        nuevosAgentes,
+        nuevosEncabezadosFilas,
+        nuevosHorarios,
+        nuevaMatriz,
+        nuevosSectoresData,
+        selectedSector,
+        selectedShift
       });
     };
-  
+
     reader.readAsText(file);
   };
 
@@ -350,16 +356,21 @@ const HorarioEditable = () => {
         }
   
         if (nuevaMatriz[fila][columna] === null || nuevaMatriz[fila][columna] === '') {
-          nuevaMatriz[fila][columna] = nombreCompleto;
-          setMatriz(nuevaMatriz);
-  
-          // Update hours for new assignment
-          const nuevosAgentes = agentes.map(agente => 
-            agente.nombre === agenteData.nombre && agente.apellido === agenteData.apellido
-              ? { ...agente, horas: agente.horas + 1 }
-              : agente
-          );
-          setAgentes(nuevosAgentes);
+          if (verificarHorasConsecutivas(nuevaMatriz, columna, nombreCompleto)) {
+            // Mostrar confirmación
+            setConfirmationModal({
+              show: true,
+              action: () => {
+                nuevaMatriz[fila][columna] = nombreCompleto;
+                setMatriz(nuevaMatriz);
+                actualizarHorasAgente(agenteData, 1);
+              }
+            });
+          } else {
+            nuevaMatriz[fila][columna] = nombreCompleto;
+            setMatriz(nuevaMatriz);
+            actualizarHorasAgente(agenteData, 1);
+          }
         } else {
           alert(`La posición (${fila + 1}, ${columna + 1}) ya está ocupada.`);
         }
@@ -381,6 +392,39 @@ const HorarioEditable = () => {
       );
       setAgentes(nuevosAgentes);
     }
+  };
+
+  const actualizarHorasAgente = (agenteData, incremento) => {
+    const nuevosAgentes = agentes.map(agente => 
+      agente.nombre === agenteData.nombre && agente.apellido === agenteData.apellido
+        ? { ...agente, horas: agente.horas + incremento }
+        : agente
+    );
+    setAgentes(nuevosAgentes);
+  };
+
+  const verificarHorasConsecutivas = (nuevaMatriz, columna, nombreCompleto) => {
+    let horasConsecutivas = 1;
+    
+    // Verificar hacia atrás
+    for (let i = columna - 1; i >= 0; i--) {
+      if (nuevaMatriz.some(row => row[i] === nombreCompleto)) {
+        horasConsecutivas++;
+      } else {
+        break;
+      }
+    }
+    
+    // Verificar hacia adelante
+    for (let i = columna + 1; i < nuevaMatriz[0].length; i++) {
+      if (nuevaMatriz.some(row => row[i] === nombreCompleto)) {
+        horasConsecutivas++;
+      } else {
+        break;
+      }
+    }
+    
+    return horasConsecutivas >= 3;
   };
 
   const ordenarAgentesPorSector = () => {
@@ -411,6 +455,30 @@ const HorarioEditable = () => {
 
   return (
     <div className="p-4 bg-gray-100 min-h-screen">
+      {confirmationModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-4 rounded">
+            <p>¿Está seguro de que desea asignar una hora extra consecutiva a este agente?</p>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => {
+                  confirmationModal.action();
+                  setConfirmationModal({ show: false, action: null });
+                }}
+                className="bg-blue-500 text-white p-2 rounded mr-2"
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => setConfirmationModal({ show: false, action: null })}
+                className="bg-red-500 text-white p-2 rounded"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="mb-4 flex space-x-4">
         <select
           value={selectedShift}
