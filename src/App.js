@@ -12,6 +12,8 @@ const colors = [
 
 const sectores = ['Micro', 'Corredor', 'Casilla'];
 
+const [, forceUpdate] = useReducer(x => x + 1, 0);
+
 const HorarioEditable = () => {
   const [horarios, setHorarios] = useState(() => {
     const saved = localStorage.getItem('horarios');
@@ -133,7 +135,7 @@ const HorarioEditable = () => {
       let nuevosHorarios = [];
       const nuevaMatriz = [];
       const nuevosSectoresData = sectores.map(sector => ({ nombre: sector, agentes: [] }));
-
+  
       parsedData.forEach(fila => {
         switch(fila[0]) {
           case 'agente':
@@ -152,22 +154,40 @@ const HorarioEditable = () => {
             }
             break;
           case 'encabezado':
-            nuevosEncabezadosFilas = fila.slice(1);
+            setSelectedSector(fila[1]); // Actualiza el sector seleccionado
+            nuevosEncabezadosFilas = fila.slice(2);
             break;
           case 'horario':
             nuevosHorarios = fila.slice(1);
+            // Determina el turno basado en los horarios importados
+            if (nuevosHorarios[0] === '06:00') setSelectedShift('mañana');
+            else if (nuevosHorarios[0] === '15:00') setSelectedShift('tarde');
+            else if (nuevosHorarios[0] === '21:00') setSelectedShift('noche');
             break;
           case 'matriz':
-            nuevaMatriz.push(fila.slice(2));
+            nuevaMatriz.push(fila.slice(2).map(celda => celda === '' ? null : celda));
             break;
         }
       });
-
+  
       setAgentes(nuevosAgentes);
       setEncabezadosFilas(nuevosEncabezadosFilas);
       setHorarios(nuevosHorarios);
       setMatriz(nuevaMatriz);
       setSectoresData(nuevosSectoresData);
+  
+      // Asegúrate de que los estados se actualicen antes de continuar
+      Promise.all([
+        new Promise(resolve => setAgentes(nuevosAgentes, resolve)),
+        new Promise(resolve => setEncabezadosFilas(nuevosEncabezadosFilas, resolve)),
+        new Promise(resolve => setHorarios(nuevosHorarios, resolve)),
+        new Promise(resolve => setMatriz(nuevaMatriz, resolve)),
+        new Promise(resolve => setSectoresData(nuevosSectoresData, resolve))
+      ]).then(() => {
+        console.log("Todos los estados han sido actualizados");
+        // Forzar una actualización del componente
+        forceUpdate();
+      });
     };
   
     reader.readAsText(file);

@@ -10,6 +10,7 @@ const EstadisticasCasillas = () => {
   const [agenteSeleccionado, setAgenteSeleccionado] = useState('');
   const navigate = useNavigate();
 
+  //Funcion recursiva
   const procesarArchivos = (archivos) => {
     let estadisticasTemp = { entrada: {}, salida: {} };
     let casillasValidasTemp = { entrada: [], salida: [] };
@@ -43,6 +44,7 @@ const EstadisticasCasillas = () => {
       }
 
       const archivo = archivos[index];
+
       Papa.parse(archivo, {
         complete: (result) => {
           const datos = result.data;
