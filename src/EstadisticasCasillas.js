@@ -109,6 +109,10 @@ const EstadisticasCasillas = () => {
     }];
   };
 
+  
+  // Función para generar la etiqueta de la casilla
+  const generarEtiquetaCasilla = (casilla, index) => `Casilla ${index + 1}`;
+
   return (
     <div className="p-4 bg-gray-100 min-h-screen">
       <button
@@ -140,8 +144,7 @@ const EstadisticasCasillas = () => {
             {agente}
           </option>
         ))}
-      </select>
-
+      </select> 
       {agenteSeleccionado && (
         <div className="mt-4 space-y-8">
           {['entrada', 'salida'].map(sector => (
@@ -154,7 +157,12 @@ const EstadisticasCasillas = () => {
                   <Tooltip />
                   <Legend />
                   {casillasValidas[sector].map((casilla, index) => (
-                    <Bar key={casilla} dataKey={casilla} fill={`hsl(${index * 30}, 70%, 50%)`} />
+                    <Bar 
+                      key={casilla} 
+                      dataKey={casilla} 
+                      fill={`hsl(${index * 30}, 70%, 50%)`}
+                      name={generarEtiquetaCasilla(casilla, index)}
+                    />
                   ))}
                 </BarChart>
               </ResponsiveContainer>

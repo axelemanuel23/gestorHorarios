@@ -325,39 +325,45 @@ const HorarioEditable = () => {
       const agenteYaEnColumna = (col) => nuevaMatriz.some((row, idx) => 
         idx !== fila && row[col] === nombreCompleto
       );
-  
       // Check if it's a move within the matrix
       if (filaOrigen !== undefined && columnaOrigen !== undefined) {
+        // Movimiento dentro de la matriz
         if (columna === columnaOrigen) {
-          // Movimiento dentro de la misma columna, permitido
+          // Movimiento dentro de la misma columna, permitido sin verificación
           nuevaMatriz[filaOrigen][columnaOrigen] = null;
           nuevaMatriz[fila][columna] = nombreCompleto;
           setMatriz(nuevaMatriz);
         } else if (nuevaMatriz[fila][columna] === null || nuevaMatriz[fila][columna] === '') {
-          // Movimiento a otra columna vacía, verificar si ya está en esa columna
+          // Movimiento a otra columna vacía
           if (agenteYaEnColumna(columna)) {
             alert(`${nombreCompleto} ya está asignado en este horario.`);
             return;
           }
-          // Realizar el movimiento
-          nuevaMatriz[filaOrigen][columnaOrigen] = null;
-          nuevaMatriz[fila][columna] = nombreCompleto;
-          setMatriz(nuevaMatriz);
+          if (verificarHorasConsecutivas(nuevaMatriz, columna, nombreCompleto)) {
+            setConfirmationModal({
+              show: true,
+              action: () => {
+                nuevaMatriz[filaOrigen][columnaOrigen] = null;
+                nuevaMatriz[fila][columna] = nombreCompleto;
+                setMatriz(nuevaMatriz);
+              }
+            });
+          } else {
+            nuevaMatriz[filaOrigen][columnaOrigen] = null;
+            nuevaMatriz[fila][columna] = nombreCompleto;
+            setMatriz(nuevaMatriz);
+          }
         } else {
-          // Intento de mover a una columna diferente que ya está ocupada
           alert(`No se puede mover a esta posición. La casilla ya está ocupada por otro agente.`);
-          return;
         }
       } else {
-        // It's a new assignment
+        // Nueva asignación
         if (agenteYaEnColumna(columna)) {
           alert(`${nombreCompleto} ya está asignado en este horario.`);
           return;
         }
-  
         if (nuevaMatriz[fila][columna] === null || nuevaMatriz[fila][columna] === '') {
           if (verificarHorasConsecutivas(nuevaMatriz, columna, nombreCompleto)) {
-            // Mostrar confirmación
             setConfirmationModal({
               show: true,
               action: () => {
