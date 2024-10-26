@@ -49,17 +49,6 @@ const HorarioEditable = () => {
   
   const [importedData, setImportedData] = useState(null);
 
-  const shiftHorarios = {
-    mañana: ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'],
-    tarde: ['15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00','00:00'],
-    noche: ['21:00','22:00', '23:00', '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00']
-  };
-
-  const sectorEncabezados = {
-    entrada: Array(12).fill().map((_, index) => `Entrada ${index + 1}`),
-    salida: Array(12).fill().map((_, index) => `Salida ${index + 1}`)
-  };
-
   useEffect(() => {
     if (importedData) {
       setAgentes(importedData.nuevosAgentes);
@@ -74,10 +63,19 @@ const HorarioEditable = () => {
   }, [importedData]);
 
   useEffect(() => {
+    const shiftHorarios = {
+      mañana: ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'],
+      tarde: ['15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00','00:00'],
+      noche: ['21:00','22:00', '23:00', '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00']
+    };
     setHorarios(shiftHorarios[selectedShift]);
   }, [selectedShift]);
 
   useEffect(() => {
+    const sectorEncabezados = {
+      entrada: Array(12).fill().map((_, index) => `Entrada ${index + 1}`),
+      salida: Array(12).fill().map((_, index) => `Salida ${index + 1}`)
+    };
     setEncabezadosFilas(sectorEncabezados[selectedSector]);
   }, [selectedSector]);
 
@@ -181,6 +179,9 @@ const HorarioEditable = () => {
             break;
           case 'matriz':
             nuevaMatriz.push(fila.slice(2).map(celda => celda === '' ? null : celda));
+            break;
+          default:
+            alert("Por alguna razon se fue al default")
             break;
         }
       });
